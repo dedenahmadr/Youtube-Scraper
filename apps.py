@@ -4,6 +4,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from googleapiclient.discovery import build
+import io
 
 # ========== KONFIGURASI API ==========
 API_KEY = "AIzaSyD2zd-4T6_BB24z6XVQT-JIJu0bGOWuodE"  # Ganti dengan API Key YouTube kamu
@@ -144,16 +145,24 @@ def get_comments_by_query(query):
 
     return comments
 
+def extract_video_id(url):
+    """Extract video ID from various YouTube URL formats"""
+    if 'youtube.com/watch?v=' in url:
+        return url.split('watch?v=')[1].split('&')[0]
+    elif 'youtu.be/' in url:
+        return url.split('youtu.be/')[1].split('?')[0]
+    return url  # Return as is if it's already just an ID
+
 # ========== STREAMLIT APP ==========
 st.set_page_config(page_title="YouTube Comment Scraper", layout="wide")
 st.title("📺 YouTube Comment Scraper")
 st.markdown("Scrape komentar YouTube berdasarkan Channel, Video, atau Pencarian Query.")
 
-menu = st.sidebar.radio("Pilih Mode Scraping", ["Channel", "Video ID", "Query"])
+menu = st.sidebar.radio("Pilih Mode Scraping", ["Channel", "Video", "Query"])
 
 if menu == "Channel":
-    st.header("📌 Scrape Berdasarkan Channel Handle")
-    channel_url = st.text_input("Masukkan URL Channel (misal: https://www.youtube.com/@MasTriAdhianto)")
+    st.header("📌 Scrape Berdasarkan Channel")
+    channel_url = st.text_input("Masukkan Link Channel (misal: https://www.youtube.com/@MasTriAdhianto)")
     start = st.date_input("Tanggal Mulai", datetime(2025, 2, 1))
     end = st.date_input("Tanggal Akhir", datetime(2025, 5, 1))
 
@@ -172,17 +181,27 @@ if menu == "Channel":
                 ])
                 st.success(f"{len(df)} komentar berhasil diambil dari {len(videos)} video.")
                 st.dataframe(df)
-                st.download_button("Download CSV", df.to_csv(index=False), "comments_by_channel.csv")
+                
+                # Download buttons
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.download_button("Download CSV", df.to_csv(index=False), "comments_by_channel.csv", "text/csv")
+                with col2:
+                    buffer = io.BytesIO()
+                    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                        df.to_excel(writer, sheet_name='Comments', index=False)
+                    st.download_button("Download Excel", buffer.getvalue(), "comments_by_channel.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             except Exception as e:
                 st.error(f"Gagal: {e}")
 
-elif menu == "Video ID":
-    st.header("🎥 Scrape Berdasarkan Video ID")
-    video_id = st.text_input("Masukkan Video ID (misal: kRAFVjC_fdI)")
+elif menu == "Video":
+    st.header("🎥 Scrape Berdasarkan Video")
+    video_url = st.text_input("Masukkan Link Video YouTube (misal: https://www.youtube.com/watch?v=kRAFVjC_fdI)")
 
     if st.button("Scrape Komentar Video"):
         with st.spinner("Mengambil komentar..."):
             try:
+                video_id = extract_video_id(video_url)
                 comments = get_video_comments(video_id)
                 df = pd.DataFrame(comments, columns=[
                     'publishedAt', 'authorDisplayName', 'textDisplay',
@@ -190,7 +209,16 @@ elif menu == "Video ID":
                 ])
                 st.success(f"{len(df)} komentar berhasil diambil.")
                 st.dataframe(df)
-                st.download_button("Download CSV", df.to_csv(index=False), "comments_by_video.csv")
+                
+                # Download buttons
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.download_button("Download CSV", df.to_csv(index=False), "comments_by_video.csv", "text/csv")
+                with col2:
+                    buffer = io.BytesIO()
+                    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                        df.to_excel(writer, sheet_name='Comments', index=False)
+                    st.download_button("Download Excel", buffer.getvalue(), "comments_by_video.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             except Exception as e:
                 st.error(f"Gagal: {e}")
 
@@ -206,7 +234,16 @@ elif menu == "Query":
                 if len(df) > 0:
                     st.success(f"{len(df)} komentar berhasil diambil.")
                     st.dataframe(df)
-                    st.download_button("Download CSV", df.to_csv(index=False), "comments_by_query.csv")
+                    
+                    # Download buttons
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.download_button("Download CSV", df.to_csv(index=False), "comments_by_query.csv", "text/csv")
+                    with col2:
+                        buffer = io.BytesIO()
+                        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                            df.to_excel(writer, sheet_name='Comments', index=False)
+                        st.download_button("Download Excel", buffer.getvalue(), "comments_by_query.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                 else:
                     st.warning("Tidak ada komentar yang ditemukan untuk query ini.")
             except Exception as e:
